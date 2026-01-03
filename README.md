@@ -247,8 +247,7 @@ ServerActive=ip du serveur
 Hostname=Nom_De_Cette_Instance
 ```
 
-
-Et oon redemarre le service :
+Et on redemarre le service :
 
 ```bash
 sudo systemctl restart zabbix-agent
@@ -260,6 +259,111 @@ sudo systemctl enable zabbix-agent
 On se connecter a l'interface de  Zabbix pour faire   complèter la configuration :
 ![config](./img/creationClientConfig.png)
 
+![linux client](./img/interfaceMoniterLinuxClient.png)
+
+### - Configuration d l'agent Windows-client :
+
+Nous telechargeons l'angents sur le client windows a l'adresse : [liens vers le  l'angents  zabbix windows](https://www.zabbix.com/download_agents)
+
+
+on passe en suite la 'installtion 
+
+- installation :
+  ![installation de windows](./img/zabbixWindowsInstallation.png)
+
+
+-  On verifie la connectivité :
+  ![connectivité](./img/ConnnectiviteWindowsClient.png)
+
+- Dans l'interface de client zabbix on ajoute le nouveau client en créant un host
+  ![creation de hoste](./img/creationWindowsHost.png)
+
+ - verifiaction de l'envoi des données :
+  ![ confirmation de la reception des données](./img/InterfaceWindowDonneerecu.png)
+
+---
+
+# Monitoring et Validation
+
+## -Création de dashboard  Global :
+Nous créons un Dashboard  global pour  affcichier  les metrics de nos clients.
+
+- Nous allons dans Dashboards  on clique sur  sur **Create dashboard**, On e nomme **Global Infrastructure Monitoring** :
+
+    - Le graphique CPU :
+
+        ->  Add widget et  on choisit le type Graph.
+
+        -> Dans le champ Item patterns, on cherche  **CPU utilization**.
+
+        -> Dans Host patterns, nous selectionnons la fois **Linux-client** et **Windows-client.**
+        
+        ![creation graph cpu](./img/creationCPUMonoitoring.png)
+       
+
+    - Graph de RAM :
+
+         -> on ajoute un widget de type graph.
+
+         -> On selectionne l'item Memory utilization.
+        
+        ![création graph ram](./img/creationMonitorigRAM.png)
+    On sauvegarde 
+
+
+## - Mise en place d'un Trigger (Alerte Proactive)
+
+Cela prouve que ton système est capable d'auto-surveillance. Nous allons simuler une alerte de charge CPU élevée.
+
+   -  Dans **Data Collection > Hosts**
+
+   - On choisi un  hôte (ex: Linux-client).
+
+   - on  Clique sur Create trigger en haut à droite.
+
+   - Configuration :
+
+       - Name : High CPU utilization on {HOST.NAME}.
+
+       - Severity : Choisissez High (Rouge).
+
+       - Expression : Clique sur Add, on cherche l'item CPU utilization, on choisit la fonction last() et mets > 10.
+       - Cliquez sur Add.
+
+       ![ttigger](./img/creationTriggers.png)
+   
+
+ On  peut voir un Dashboard Global qui est la fusion ici :
+ ![dashboard gloabl](./img/dashborglobal.png)
+
+
+
+
+---
+
+# Conclusion
+
+Le déploiement de cette infrastructure de monitoring hybride sur AWS constitue une démonstration concrète de l'interopérabilité entre les technologies Cloud, la conteneurisation et l'administration système multiplateforme.
+
+## 🎯 Bilan technique et objectifs atteints
+L'objectif principal, qui était de centraliser la surveillance d'un parc hétérogène (**Linux et Windows**) au sein d'un environnement réseau sécurisé, a été pleinement atteint. L'utilisation de **Zabbix 7.0 sous Docker** a permis de garantir une séparation stricte des services (Serveur, Base de données, Interface Web) tout en assurant une portabilité maximale de la solution.
+
+## 🛠️ Analyse des défis et solutions apportées
+Le projet a présenté plusieurs défis techniques majeurs qui ont nécessité une analyse approfondie du fonctionnement des réseaux AWS :
+
+* **Gestion de l'adressage dynamique** : L'absence d'adresses IP publiques statiques sur les clients a été contournée avec succès par l'implémentation du mode **Active Agent**. Cette approche a permis de maintenir la remontée de métriques sans exposer les instances inutilement sur Internet.
+* **Sécurisation des flux** : La configuration granulaire des *Security Groups* et du *Windows Advanced Firewall* a permis de respecter le principe du moindre privilège tout en assurant une connectivité robuste sur les ports `10050` et `10051`.
+* **Connectivité hybride** : L'utilisation temporaire d'adresses IP Élastiques a démontré une compréhension du cycle de vie des ressources Cloud pour les phases de maintenance et de provisionnement.
+
+## 🚀 Perspectives d'évolution
+Cette architecture pose les jalons d'une supervision plus avancée. À l'avenir, le projet pourrait être valorisé par :
+
+1.  **L'intégration de Grafana** pour créer des visualisations de données de niveau "Business Intelligence".
+2.  **La mise en place d'un système d'alerte externe** (via Telegram ou Slack) pour notifier les administrateurs en temps réel.
+3.  **L'automatisation du déploiement** des agents via des outils d'Infrastructure as Code (IaC) comme **Ansible** ou **Terraform**.
+
+---
+> **Bilan final :** Ce projet m'a permis de consolider mes compétences en gestion de réseaux complexes et de confirmer l'efficacité de Zabbix comme outil de référence pour la supervision d'infrastructures modernes.
 
 
 
@@ -268,81 +372,3 @@ On se connecter a l'interface de  Zabbix pour faire   complèter la configuratio
 
 
 
-
-Étape 1 : Préparation de l'Infrastructure Cloud (AWS)
-
-C'est la fondation de votre projet. Vous devez créer un environnement réseau capable de faire communiquer le serveur et ses agents.
-
-    VPC & Réseau : Utilisez le VPC par défaut ou créez-en un nouveau avec un sous-réseau public dans la région us-east-1.
-
-    Security Groups (Critique) : Créez deux groupes de sécurité :
-
-        SG-Serveur : Autorisez le port 80 (Web), 22 (SSH) et surtout le port 10051 (Trapper) pour recevoir les données des agents.
-
-        SG-Clients : Autorisez le port 22 (SSH), 3389 (RDP pour Windows) et le port 10050 pour que le serveur puisse interroger les agents.
-
-    Lancement des Instances :
-
-        Zabbix Server : Instance t3.large sous Ubuntu 22.04.
-
-        Agent Linux : Instance t3.medium sous Ubuntu.
-
-        Agent Windows : Instance t3.large sous Windows Server (pour garantir la fluidité avec 8Go de RAM).
-
-Étape 2 : Déploiement du Serveur Zabbix avec Docker
-
-Sur votre instance Zabbix Server, exécutez les commandes suivantes :
-
-    Installer Docker :
-    Bash
-
-sudo apt update && sudo apt install docker.io docker-compose -y
-
-Déployer via Docker-Compose : Créez un fichier docker-compose.yml incluant les images zabbix-server-mysql, zabbix-web-nginx-mysql et mysql:8.0.
-
-Lancement :
-Bash
-
-    sudo docker-compose up -d
-
-    Vérification : Accédez à l'interface via http://<IP_PUBLIQUE_SERVEUR>. Les identifiants par défaut sont Admin / zabbix.
-
-Étape 3 : Configuration des Agents (Clients)
-
-Vous devez maintenant dire aux clients d'envoyer leurs données au serveur.
-
-    Sur Linux :
-
-        Installez l'agent : sudo apt install zabbix-agent.
-
-        Modifiez /etc/zabbix/zabbix_agentd.conf :
-
-            Server=<IP_PUBLIQUE_SERVEUR_ZABBIX>
-
-            Hostname=Client-Linux
-
-        Redémarrez : sudo systemctl restart zabbix-agent.
-
-    Sur Windows :
-
-        Téléchargez l'installeur MSI Zabbix Agent sur le site officiel.
-
-        Pendant l'installation, renseignez l'IP du serveur Zabbix dans le champ "Zabbix Server IP".
-
-Étape 4 : Monitoring et Validation
-
-    Ajout des Hôtes : Dans l'interface Zabbix, allez dans Configuration > Hosts > Create Host.
-
-    Templates : Utilisez les templates standards (Linux by Zabbix agent et Windows by Zabbix agent).
-
-    Vérification du statut : Attendez que l'icône ZBX devienne verte.
-
-Étape 5 : Préparation des Livrables (Conseils)
-
-    Captures d'écran : Prenez des captures nettes. Utilisez l'outil "Capture" de Windows. Annotez vos images (entourez l'IP ou le statut vert).
-
-    Vidéo (5-10 min) : 1. Montrez les instances sur AWS. 2. Montrez l'interface Zabbix avec les deux hôtes connectés. 3. Montrez un graphique de CPU en temps réel.
-
-    GitHub : Votre dépôt doit contenir votre docker-compose.yml, vos scripts de configuration et un beau README.md (celui que nous avons préparé ensemble).
-
-Rappel crucial : Dans le Learner Lab, les instances s'arrêtent automatiquement. Si vous reprenez votre travail après une pause, n'oubliez pas de relancer vos conteneurs avec docker-compose up -d sur le serveur.
